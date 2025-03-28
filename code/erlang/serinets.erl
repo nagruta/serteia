@@ -13,14 +13,14 @@
 -define(HTTPD_PORT_LOCAL  , 8088                        ).
 -define(HTTPD_PORT_PUBLIC , 4433                        ).
 -define(PATH_MODULE       , filename:dirname(proplists:get_value(source, module_info(compile)))).
--define(PATH_PARENT       , ?PATH_MODULE++"/.."         ).
--define(PATH_HTML         , ?PATH_PARENT++"/html"       ).
--define(PATH_TOP          , ?PATH_PARENT++"/.."         ).
+-define(PATH_CODE         , ?PATH_MODULE++"/.."         ).
+-define(PATH_TOP          , ?PATH_CODE++"/.."           ).
 -define(DIR_LOG           , "log"                       ).
 -define(PATH_LOG          , ?PATH_TOP++"/"++?DIR_LOG    ).
 -define(PATH_CERT         , ?PATH_TOP++"/cert"          ).
 -define(FILE_CERT         , ?PATH_CERT++"/fullchain.pem").
 -define(FILE_KEY          , ?PATH_CERT++"/privkey.pem"  ).
+-define(PATH_SITE         , ?PATH_TOP++"/site"          ).
 
 acquire() ->
   case whereis(?NAME_SINGLETON) of
@@ -61,13 +61,13 @@ start(Addr, Port) ->
   ok = application:ensure_started(inets),
   {ok,PidHttpd} = inets:start(httpd, [
      {bind_address    , Addr                          }
-    ,{document_root   , ?PATH_HTML                    }
+    ,{document_root   , ?PATH_SITE                    }
     ,{port            , Port                          }
     ,{server_name     , Addr                          }
     ,{server_root     , ?PATH_TOP                     }
     ,SocketType
     ,{modules         , [mod_alias, mod_get, mod_log] }
-    ,{directory_index , ["index.html"]                }
+    ,{directory_index , ["serteia.org/index.html"]    }
     %% mod_log config:
     ,{error_log       , ?DIR_LOG++"/error.log"        }
     ,{security_log    , ?DIR_LOG++"/security.log"     }
