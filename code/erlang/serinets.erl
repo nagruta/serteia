@@ -41,22 +41,22 @@ init(Addr) ->
   end.
 
 start(Addr, Port) ->
-  case {file:read_file_info(?FILE_CERT),
-        file:read_file_info(?FILE_KEY )} of
-      {{ok,_},{ok,_}} -> %% support HTTPS
-        ok = application:ensure_started(asn1),
-        ok = application:ensure_started(crypto),
-        ok = application:ensure_started(public_key),
-        ok = application:ensure_started(ssl),
-        SocketType = {socket_type,
-          {ssl,[{certfile,?FILE_CERT},{keyfile,?FILE_KEY}]}};
-      _ -> SocketType = {ip_comm},
-          report("No HTTPS; missing cert files")
-  end,
   case file:make_dir(?PATH_LOG) of
     ok -> report("Made directory "++?PATH_LOG), ok;
     {error,eexist} -> ok;
     Bad -> ok = Bad
+  end,
+  case {file:read_file_info(?FILE_CERT),
+        file:read_file_info(?FILE_KEY )} of
+    {{ok,_},{ok,_}} -> %% support HTTPS
+      ok = application:ensure_started(asn1),
+      ok = application:ensure_started(crypto),
+      ok = application:ensure_started(public_key),
+      ok = application:ensure_started(ssl),
+      SocketType = {socket_type,
+        {ssl,[{certfile,?FILE_CERT},{keyfile,?FILE_KEY}]}};
+    _ -> SocketType = {ip_comm},
+        report("No HTTPS; missing cert files")
   end,
   ok = application:ensure_started(inets),
   {ok,PidHttpd} = inets:start(httpd, [
