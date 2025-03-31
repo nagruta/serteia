@@ -56,8 +56,7 @@ init(Addr) ->
   end.
 
 start(Addr, Port) ->
-  report("starting "++atom_to_list(?NAME_SINGLETON)
-       ++" process "++pid_to_list(self())),
+  report("starting this process "++pid_to_list(self())),
   case file:make_dir(?PATH_LOG) of
     ok -> report("Made directory "++?PATH_LOG), ok;
     {error,eexist} -> ok;
@@ -73,7 +72,7 @@ start(Addr, Port) ->
       SocketType = {socket_type,
         {ssl,[{certfile,?FILE_CERT},{keyfile,?FILE_KEY}]}};
     _ -> SocketType = {ip_comm},
-        report("No HTTPS; missing cert files")
+        report("No HTTPS support; missing cert files")
   end,
   ok = application:ensure_started(inets),
   {ok,PidHttpd} = inets:start(httpd, [
@@ -112,4 +111,4 @@ do_report(Info) ->
 
 report(Info) ->
   %% TODO: ### ALSO OUTPUT TO LOG FILE
-  io:fwrite(Info++".\n").
+  io:fwrite("~s: ~p~n", [?NAME_SINGLETON, Info]).
