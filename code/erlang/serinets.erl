@@ -6,7 +6,22 @@
 %%  file, You can obtain one at http://mozilla.org/MPL/2.0/.
 %%
 -module(serinets).
--export([acquire/0, create/1, init/1, start/2]).
+-export([acquire/0, create/1, init/1, start/2, do/1]).
+
+-record(mod,{ % copied from otp/lib/inets/include/httpd.hrl
+  init_data,
+  data=[],
+  socket_type=ip_comm,
+  socket,
+  config_db,
+  method,
+  absolute_uri=[],
+  request_uri,
+  http_version,
+  request_line,
+  parsed_header=[],
+  entity_body,
+  connection}).
 
 -define(NAME_SINGLETON    , list_to_atom(?MODULE_STRING++"_single")).
 -define(HTTPD_ADDR_LOCAL  , "localhost"                 ).
@@ -66,7 +81,8 @@ start(Addr, Port) ->
     ,{server_name     , Addr                          }
     ,{server_root     , ?PATH_TOP                     }
     ,SocketType
-    ,{modules         , [mod_alias, mod_get, mod_log] }
+    ,{modules         , [serinets, mod_alias, mod_get, mod_log] }
+    %% mod_alias config:
     ,{directory_index , ["serteia.org/index.html"]    }
     %% mod_log config:
     ,{error_log       , ?DIR_LOG++"/error.log"        }
@@ -78,6 +94,10 @@ start(Addr, Port) ->
     stop        -> inets:stop(httpd, PidHttpd), ok;
     stop_inets  -> inets:stop(), ok
   end.
+
+do(Info) ->
+  report(Info#mod.absolute_uri),
+  {proceed,Info#mod.data}.
 
 report(Info) ->
   %% TODO: ### ALSO OUTPUT TO LOG FILE
