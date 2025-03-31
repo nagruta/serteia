@@ -56,6 +56,8 @@ init(Addr) ->
   end.
 
 start(Addr, Port) ->
+  report("starting "++atom_to_list(?NAME_SINGLETON)
+       ++" process "++pid_to_list(self())),
   case file:make_dir(?PATH_LOG) of
     ok -> report("Made directory "++?PATH_LOG), ok;
     {error,eexist} -> ok;
@@ -89,6 +91,7 @@ start(Addr, Port) ->
     ,{security_log    , ?DIR_LOG++"/security.log"     }
     ,{transfer_log    , ?DIR_LOG++"/transfer.log"     }
   ]),
+  report("started inets httpd process "++pid_to_list(PidHttpd)),
   register(?NAME_SINGLETON, self()),
   receive
     {report,Info} -> report(Info),                ok;
