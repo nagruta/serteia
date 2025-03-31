@@ -91,13 +91,21 @@ start(Addr, Port) ->
   ]),
   register(?NAME_SINGLETON, self()),
   receive
-    stop        -> inets:stop(httpd, PidHttpd), ok;
-    stop_inets  -> inets:stop(), ok
+    {report,Info} -> report(Info),                ok;
+    stop          -> inets:stop(httpd, PidHttpd), ok;
+    stop_inets    -> inets:stop(),                ok
   end.
 
 do(Info) ->
-  report(Info#mod.absolute_uri),
+  do_report(Info#mod.absolute_uri),
   {proceed,Info#mod.data}.
+
+do_report(Info) ->
+  case whereis(?NAME_SINGLETON) of
+    % writing to standard out does not show from the httpd calling process
+    Pid when is_pid(Pid) -> Pid ! {report,Info};
+    _ -> report(Info)
+  end.
 
 report(Info) ->
   %% TODO: ### ALSO OUTPUT TO LOG FILE
