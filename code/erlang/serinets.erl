@@ -35,7 +35,8 @@
 -define(PATH_CERT         , ?PATH_TOP++"/cert"          ).
 -define(FILE_CERT         , ?PATH_CERT++"/fullchain.pem").
 -define(FILE_KEY          , ?PATH_CERT++"/privkey.pem"  ).
--define(PATH_SITE         , ?PATH_TOP++"/site"          ).
+-define(PATH_SITE_HERE    , ?PATH_TOP++"/site"          ).
+-define(PATH_SITE_THERE   , ?PATH_TOP++"/../site"       ).
 
 acquire() ->
   case whereis(?NAME_SINGLETON) of
@@ -57,6 +58,9 @@ init(Addr) ->
 
 start(Addr, Port) ->
   report("starting this process "++pid_to_list(self())),
+  Sites = lists:append(subdirs(?PATH_SITE_HERE),
+                       subdirs(?PATH_SITE_THERE)),
+  report("sites: "++lists:flatten(lists:join(", ",Sites))),
   case file:make_dir(?PATH_LOG) of
     ok -> report("Made directory "++?PATH_LOG), ok;
     {error,eexist} -> ok;
@@ -77,7 +81,7 @@ start(Addr, Port) ->
   ok = application:ensure_started(inets),
   {ok,PidHttpd} = inets:start(httpd, [
      {bind_address    , Addr                          }
-    ,{document_root   , ?PATH_SITE                    }
+    ,{document_root   , ?PATH_SITE_HERE               }
     ,{port            , Port                          }
     ,{server_name     , Addr                          }
     ,{server_root     , ?PATH_TOP                     }
@@ -112,3 +116,18 @@ do_report(Info) ->
 report(Info) ->
   %% TODO: ### ALSO OUTPUT TO LOG FILE
   io:fwrite("~s: ~p~n", [?NAME_SINGLETON, Info]).
+
+subdirs(Path) ->
+  case file:list_dir(Path) of
+    {ok,Filenames} -> lists:filter(
+      fun(Filename) ->
+        Filepath = Path++"/"++Filename,
+        case file:read_file_info(Filepath) of
+          %%{ok,FileInfo} -> FileInfo#file_info.type == directory;
+          {ok,FileInfo} -> element(3, FileInfo) == directory;
+          _ -> false
+        end
+      end,
+      Filenames);
+    _ -> []
+  end.
