@@ -6,7 +6,7 @@
 %%  file, You can obtain one at http://mozilla.org/MPL/2.0/.
 %%
 -module(serinets).
--export([acquire/0, create/1, init/1, start/2, do/1]).
+-export([acquire/0, create/1, init/1, do/1]).
 
 -record(mod,{ % copied from otp/lib/inets/include/httpd.hrl
   init_data,
@@ -52,19 +52,19 @@ create(Addr) ->
 
 init(Addr) ->
   case Addr of
-    local -> start(?HTTPD_ADDR_LOCAL, ?HTTPD_PORT_LOCAL );
-    _     -> start(Addr             , ?HTTPD_PORT_PUBLIC)
+    local -> p_start(?HTTPD_ADDR_LOCAL, ?HTTPD_PORT_LOCAL );
+    _     -> p_start(Addr             , ?HTTPD_PORT_PUBLIC)
   end.
 
-start(Addr, Port) ->
-  report("starting this process "++pid_to_list(self())),
-  Sites = lists:append(subdirs(?PATH_SITE_HERE),
-                       subdirs(?PATH_SITE_THERE)),
-  report("sites: "++lists:flatten(lists:join(", ",Sites))),
+p_start(Addr, Port) ->
+  p_report("starting this process "++pid_to_list(self())),
+  Sites = lists:append(p_subdirs(?PATH_SITE_HERE),
+                       p_subdirs(?PATH_SITE_THERE)),
+  p_report("sites: "++lists:flatten(lists:join(", ",Sites))),
   ets:new(   ?MODULE, [set, named_table]),
   ets:insert(?MODULE, {serteia_sites, Sites}),
   case file:make_dir(?PATH_LOG) of
-    ok -> report("Made directory "++?PATH_LOG), ok;
+    ok -> p_report("Made directory "++?PATH_LOG), ok;
     {error,eexist} -> ok;
     Bad -> ok = Bad
   end,
@@ -78,7 +78,7 @@ start(Addr, Port) ->
       SocketType = {socket_type,
         {ssl,[{certfile,?FILE_CERT},{keyfile,?FILE_KEY}]}};
     _ -> SocketType = {ip_comm},
-        report("No HTTPS support; missing cert files")
+        p_report("No HTTPS support; missing cert files")
   end,
   ok = application:ensure_started(inets),
   {ok,PidHttpd} = inets:start(httpd, [
@@ -96,41 +96,41 @@ start(Addr, Port) ->
     ,{security_log    , ?DIR_LOG++"/security.log"     }
     ,{transfer_log    , ?DIR_LOG++"/transfer.log"     }
   ]),
-  report("started inets httpd process "++pid_to_list(PidHttpd)),
+  p_report("started inets httpd process "++pid_to_list(PidHttpd)),
   register(?NAME_SINGLETON, self()),
-  loop(PidHttpd, Addr, Port).
+  p_loop(PidHttpd, Addr, Port).
 
-loop(PidHttpd, Addr, Port) ->
+p_loop(PidHttpd, Addr, Port) ->
   receive
-    {report,Info} -> report(Info),    loop(PidHttpd, Addr, Port);
-    restart       -> stop(PidHttpd),  start(Addr, Port);
-    stop          -> stop(PidHttpd),  ok;
-    stop_inets    -> inets:stop(),    ok
+    {report,Info} -> p_report(Info),    p_loop(PidHttpd, Addr, Port);
+    restart       -> p_stop(PidHttpd),  p_start(Addr, Port);
+    stop          -> p_stop(PidHttpd),  ok;
+    stop_inets    -> inets:stop(),      ok
   end.
 
-stop(PidHttpd) ->
+p_stop(PidHttpd) ->
   unregister(?NAME_SINGLETON),
   inets:stop(httpd, PidHttpd),
   ets:delete(?MODULE).
 
 do(Info) ->
-  do_report(Info#mod.absolute_uri),
+  p_do_report(Info#mod.absolute_uri),
   Sites = ets:lookup(?MODULE, serteia_sites),
-  do_report(Sites),
+  p_do_report(Sites),
   {proceed,Info#mod.data}.
 
-do_report(Info) ->
+p_do_report(Info) ->
   case whereis(?NAME_SINGLETON) of
     % writing to standard out does not show from the httpd calling process
     Pid when is_pid(Pid) -> Pid ! {report,Info};
-    _ -> report(Info)
+    _ -> p_report(Info)
   end.
 
-report(Info) ->
+p_report(Info) ->
   %% TODO: ### ALSO OUTPUT TO LOG FILE
   io:fwrite("~s: ~p~n", [?NAME_SINGLETON, Info]).
 
-subdirs(Path) ->
+p_subdirs(Path) ->
   case file:list_dir(Path) of
     {ok,Filenames} -> lists:filter(
       fun(Filename) ->
