@@ -96,8 +96,11 @@ start(Addr, Port) ->
   ]),
   report("started inets httpd process "++pid_to_list(PidHttpd)),
   register(?NAME_SINGLETON, self()),
+  loop(PidHttpd).
+
+loop(PidHttpd) ->
   receive
-    {report,Info} -> report(Info),                ok;
+    {report,Info} -> report(Info), loop(PidHttpd);
     stop          -> inets:stop(httpd, PidHttpd), ok;
     stop_inets    -> inets:stop(),                ok
   end.
