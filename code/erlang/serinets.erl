@@ -61,6 +61,8 @@ start(Addr, Port) ->
   Sites = lists:append(subdirs(?PATH_SITE_HERE),
                        subdirs(?PATH_SITE_THERE)),
   report("sites: "++lists:flatten(lists:join(", ",Sites))),
+  ets:new(   ?MODULE, [set, named_table]),
+  ets:insert(?MODULE, {serteia_sites, Sites}),
   case file:make_dir(?PATH_LOG) of
     ok -> report("Made directory "++?PATH_LOG), ok;
     {error,eexist} -> ok;
@@ -107,6 +109,8 @@ loop(PidHttpd) ->
 
 do(Info) ->
   do_report(Info#mod.absolute_uri),
+  Sites = ets:lookup(?MODULE, serteia_sites),
+  do_report(Sites),
   {proceed,Info#mod.data}.
 
 do_report(Info) ->
