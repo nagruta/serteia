@@ -98,14 +98,20 @@ start(Addr, Port) ->
   ]),
   report("started inets httpd process "++pid_to_list(PidHttpd)),
   register(?NAME_SINGLETON, self()),
-  loop(PidHttpd).
+  loop(PidHttpd, Addr, Port).
 
-loop(PidHttpd) ->
+loop(PidHttpd, Addr, Port) ->
   receive
-    {report,Info} -> report(Info), loop(PidHttpd);
-    stop          -> inets:stop(httpd, PidHttpd), ok;
-    stop_inets    -> inets:stop(),                ok
+    {report,Info} -> report(Info),    loop(PidHttpd, Addr, Port);
+    restart       -> stop(PidHttpd),  start(Addr, Port);
+    stop          -> stop(PidHttpd),  ok;
+    stop_inets    -> inets:stop(),    ok
   end.
+
+stop(PidHttpd) ->
+  unregister(?NAME_SINGLETON),
+  inets:stop(httpd, PidHttpd),
+  ets:delete(?MODULE).
 
 do(Info) ->
   do_report(Info#mod.absolute_uri),
