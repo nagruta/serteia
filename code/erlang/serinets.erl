@@ -8,6 +8,8 @@
 -module(serinets).
 -export([acquire/0, create/1, init/1, do/1]).
 
+-include_lib("kernel/include/file.hrl").
+
 -record(mod,{ % copied from otp/lib/inets/include/httpd.hrl
   init_data,
   data=[],
@@ -60,7 +62,9 @@ p_start(Addr, Port) ->
   p_report("starting this process "++pid_to_list(self())),
   Sites = lists:append(p_subdirs(?PATH_SITE_HERE),
                        p_subdirs(?PATH_SITE_THERE)),
-  p_report("sites: "++lists:flatten(lists:join(", ",Sites))),
+  p_report("sites: "++lists:flatten(
+                      lists:join(", ",
+                      lists:map(fun(Tup) -> element(1,Tup) end, Sites)))),
   ets:new(   ?MODULE, [set, named_table]),
   ets:insert(?MODULE, {serteia_sites, Sites}),
   case file:make_dir(?PATH_LOG) of
@@ -132,12 +136,15 @@ p_report(Info) ->
 
 p_subdirs(Path) ->
   case file:list_dir(Path) of
-    {ok,Filenames} -> lists:filter(
+    {ok,Filenames} -> lists:filtermap(
       fun(Filename) ->
         Filepath = Path++"/"++Filename,
         case file:read_file_info(Filepath) of
-          %%{ok,FileInfo} -> FileInfo#file_info.type == directory;
-          {ok,FileInfo} -> element(3, FileInfo) == directory;
+          {ok,FileInfo} ->
+            case FileInfo#file_info.type =:= directory of
+              true  -> {true, {Filename, Filepath}};
+              false -> false
+            end;
           _ -> false
         end
       end,
