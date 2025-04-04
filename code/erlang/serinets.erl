@@ -9,21 +9,21 @@
 -export([acquire/0, create/1, init/1, do/1]).
 
 -include_lib("kernel/include/file.hrl").
-
--record(mod,{ % copied from otp/lib/inets/include/httpd.hrl
-  init_data,
-  data=[],
-  socket_type=ip_comm,
-  socket,
-  config_db,
-  method,
-  absolute_uri=[],
-  request_uri,
-  http_version,
-  request_line,
-  parsed_header=[],
-  entity_body,
-  connection}).
+-include_lib("inets/include/httpd.hrl").
+%%-record(mod,
+%%  init_data,
+%%  data=[],
+%%  socket_type=ip_comm,
+%%  socket,
+%%  config_db,
+%%  method,
+%%  absolute_uri=[],
+%%  request_uri,
+%%  http_version,
+%%  request_line,
+%%  parsed_header=[],
+%%  entity_body,
+%%  connection}).
 
 -define(NAME_SINGLETON    , list_to_atom(?MODULE_STRING++"_single")).
 -define(HTTPD_ADDR_LOCAL  , "localhost"                 ).
@@ -62,11 +62,14 @@ p_start(Addr, Port) ->
   p_report("starting this process "++pid_to_list(self())),
   Sites = lists:append(p_subdirs(?PATH_SITE_HERE),
                        p_subdirs(?PATH_SITE_THERE)),
-  p_report("sites: "++lists:flatten(
-                      lists:join(", ",
-                      lists:map(fun(Tup) -> element(1,Tup) end, Sites)))),
-  ets:new(   ?MODULE, [set, named_table]),
+  ets:new(   ?MODULE, [duplicate_bag, named_table]),
   ets:insert(?MODULE, {serteia_sites, Sites}),
+  lists:foreach(fun (Site) ->
+      Domain = element(1, Site),
+      Path   = element(2, Site),
+      ets:insert(?MODULE, {alias, {"/"++Domain++"/", Path++"/"}}),
+      p_report("site "++Domain++": "++Path)
+    end, Sites),
   case file:make_dir(?PATH_LOG) of
     ok -> p_report("Made directory "++?PATH_LOG), ok;
     {error,eexist} -> ok;
@@ -86,19 +89,17 @@ p_start(Addr, Port) ->
   end,
   ok = application:ensure_started(inets),
   {ok,PidHttpd} = inets:start(httpd, [
-     {bind_address    , Addr                          }
-    ,{document_root   , ?PATH_SITE_HERE               }
-    ,{port            , Port                          }
-    ,{server_name     , Addr                          }
-    ,{server_root     , ?PATH_TOP                     }
+     {bind_address    , Addr                        }
+    ,{document_root   , ?PATH_SITE_HERE             }
+    ,{port            , Port                        }
+    ,{server_name     , Addr                        }
+    ,{server_root     , ?PATH_TOP                   }
     ,SocketType
-    ,{modules         , [serinets, mod_alias, mod_get, mod_log] }
-    %% mod_alias config:
-    ,{directory_index , ["serteia.org/index.html"]    }
+    ,{modules         , [serinets, mod_get, mod_log]}
     %% mod_log config:
-    ,{error_log       , ?DIR_LOG++"/error.log"        }
-    ,{security_log    , ?DIR_LOG++"/security.log"     }
-    ,{transfer_log    , ?DIR_LOG++"/transfer.log"     }
+    ,{error_log       , ?DIR_LOG++"/error.log"      }
+    ,{security_log    , ?DIR_LOG++"/security.log"   }
+    ,{transfer_log    , ?DIR_LOG++"/transfer.log"   }
   ]),
   p_report("started inets httpd process "++pid_to_list(PidHttpd)),
   register(?NAME_SINGLETON, self()),
@@ -118,10 +119,26 @@ p_stop(PidHttpd) ->
   ets:delete(?MODULE).
 
 do(Info) ->
-  p_do_report(Info#mod.absolute_uri),
-  Sites = ets:lookup(?MODULE, serteia_sites),
-  p_do_report(Sites),
-  {proceed,Info#mod.data}.
+  Domain = lists:takewhile( % before port or first /
+    fun(C) -> (C =/= $:) and (C =/= $/) end, Info#mod.absolute_uri),
+  DomUri = "/"++Domain++Info#mod.request_uri,
+  ReqUri = case lists:last(DomUri) of
+             $/ -> DomUri++"index.html";
+             _  -> DomUri
+           end,
+  %%p_do_report(ReqUri),
+  % !!! we must call mod_alias directly to pass our modified ReqUri
+  Response = mod_alias:do(
+    #mod{config_db   = ?MODULE,
+         request_uri = ReqUri,
+         data        = Info#mod.data}),
+  Data = element(2, Response),
+  %%p_do_report(Data),
+  %%Path = mod_alias:path(
+  %%  Data, Info#mod.config_db, Info#mod.request_uri),
+  %%p_do_report(Path),
+  %%p_do_report(ReqUri++" -> "++Path),
+  {proceed,Data}.
 
 p_do_report(Info) ->
   case whereis(?NAME_SINGLETON) of
