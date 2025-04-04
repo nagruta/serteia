@@ -63,7 +63,11 @@ p_start(Addr, Port) ->
   Sites = lists:append(p_subdirs(?PATH_SITE_HERE),
                        p_subdirs(?PATH_SITE_THERE)),
   ets:new(   ?MODULE, [duplicate_bag, named_table]),
-  ets:insert(?MODULE, {serteia_sites, Sites}),
+  ets:insert(?MODULE, {serteia_sites, Sites          }),
+  ets:insert(?MODULE, {document_root, ?PATH_SITE_HERE}),
+    % ^ !!! document_root is not actually needed,
+    % but mod_alias:which_document_root case ... of does not handle []
+    % that is returned from httpd_util:lookup(ConfigDB, document_root, "")
   lists:foreach(fun (Site) ->
       Domain = element(1, Site),
       Path   = element(2, Site),
