@@ -1,0 +1,2 @@
+#!/bin/sh
+${0%/*}/erlsame serteia 'posteval:make:all().' 'posteval:serinets:acquire("'$1'").'
